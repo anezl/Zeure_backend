@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root:root@localhost:3306/zeuredb"
+}
+
+model cart {
+  cart_id    Int          @id @default(autoincrement())
+  user_id    Int
+  is_ordered Boolean?     @default(false)
+  created_at DateTime?    @default(now()) @db.Timestamp(0)
+  users      users        @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cart_user")
+  cart_items cart_items[]
+  orders     orders[]
+
+  @@index([user_id], map: "fk_cart_user")
+}
+
+model cart_items {
+  cart_items_id Int      @id @default(autoincrement())
+  cart_id       Int
+  product_id    Int
+  quantity      Int?     @default(1)
+  price         Decimal  @db.Decimal(10, 2)
+  size          String?  @db.VarChar(10)
+  cart          cart     @relation(fields: [cart_id], references: [cart_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cart_items_cart")
+  products      products @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cart_items_product")
+
+  @@unique([cart_id, product_id, size], map: "uq_cart_product_size")
+  @@index([product_id], map: "fk_cart_items_product")
+}
+
+model categories {
+  category_id Int        @id @default(autoincrement())
+  name        String     @db.VarChar(100)
+  products    products[]
+}
+
+model chat_messages {
+  message_id              Int                       @id @default(autoincrement())
+  session_id              Int?
+  sender                  chat_messages_sender
+  content                 String                    @db.Text
+  created_at              DateTime?                 @default(now()) @db.Timestamp(0)
+  chat_sessions           chat_sessions?            @relation(fields: [session_id], references: [session_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_chat_messages_session")
+  product_recommendations product_recommendations[]
+
+  @@index([session_id], map: "fk_chat_messages_session")
+}
+
+model chat_sessions {
+  session_id    Int             @id @default(autoincrement())
+  user_id       Int?
+  title         String?         @db.VarChar(200)
+  created_at    DateTime?       @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?       @default(now()) @db.Timestamp(0)
+  chat_messages chat_messages[]
+  users         users?          @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_chat_sessions_user")
+
+  @@index([user_id], map: "fk_chat_sessions_user")
+}
+
+model orders {
+  order_id    Int       @id @default(autoincrement())
+  cart_id     Int
+  total_price Decimal   @db.Decimal(10, 2)
+  status      String?   @db.VarChar(50)
+  created_at  DateTime? @default(now()) @db.Timestamp(0)
+  cart        cart      @relation(fields: [cart_id], references: [cart_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_cart")
+
+  @@index([cart_id], map: "fk_orders_cart")
+}
+
+model product_recommendations {
+  rec_id        Int            @id @default(autoincrement())
+  message_id    Int?
+  product_id    Int?
+  score         Decimal?       @db.Decimal(5, 2)
+  created_at    DateTime?      @default(now()) @db.Timestamp(0)
+  chat_messages chat_messages? @relation(fields: [message_id], references: [message_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_recommendations_message")
+  products      products?      @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_recommendations_product")
+
+  @@index([message_id], map: "fk_recommendations_message")
+  @@index([product_id], map: "fk_recommendations_product")
+}
+
+model products {
+  product_id              Int                       @id @default(autoincrement())
+  name                    String                    @db.VarChar(200)
+  description             String?                   @db.Text
+  price                   Decimal                   @db.Decimal(10, 2)
+  img_url                 String?                   @db.VarChar(255)
+  stock                   Int?                      @default(0)
+  category_id             Int?
+  created_at              DateTime?                 @default(now()) @db.Timestamp(0)
+  gender                  String?                   @default("UNISEX") @db.VarChar(10)
+  material                String?                   @db.VarChar(120)
+  cart_items              cart_items[]
+  product_recommendations product_recommendations[]
+  variants                product_variants[]
+  categories              categories?               @relation(fields: [category_id], references: [category_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_products_category")
+  reviews                 reviews[]
+
+  @@index([category_id], map: "fk_products_category")
+}
+
+model product_variants {
+  variant_id Int      @id @default(autoincrement())
+  product_id Int
+  size       String   @db.VarChar(10)
+  stock      Int      @default(0)
+  products   products @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_variants_product")
+
+  @@unique([product_id, size], map: "uq_product_size")
+  @@index([product_id], map: "fk_variants_product")
+}
+
+model reviews {
+  review_id  Int       @id @default(autoincrement())
+  rating     Int
+  comment    String?   @db.Text
+  user_id    Int?
+  product_id Int?
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  products   products? @relation(fields: [product_id], references: [product_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reviews_product")
+  users      users?    @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reviews_user")
+
+  @@index([product_id], map: "fk_reviews_product")
+  @@index([user_id], map: "fk_reviews_user")
+}
+
+model users {
+  user_id              Int             @id @default(autoincrement())
+  user_name            String          @db.VarChar(100)
+  email                String          @unique(map: "email") @db.VarChar(150)
+  password             String          @db.VarChar(255)
+  is_admin             Boolean?        @default(false)
+  reset_token          String?         @db.VarChar(255)
+  reset_token_expires  DateTime?       @db.DateTime(0)
+  created_at           DateTime?       @default(now()) @db.Timestamp(0)
+  email_verified       Boolean         @default(false)
+  verify_token         String?         @db.VarChar(255)
+  verify_token_expires DateTime?       @db.DateTime(0)
+  cart                 cart[]
+  chat_sessions        chat_sessions[]
+  reviews              reviews[]
+}
+
+enum chat_messages_sender {
+  user
+  ai
+}
